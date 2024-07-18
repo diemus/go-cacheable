@@ -37,36 +37,36 @@ First, you need to initialize the cache manager. go-cacheable supports multiple 
 
 ```go
 import (
-"github.com/diemus/go-cacheable"
-"github.com/eko/gocache/lib/v4/store"
-"github.com/eko/gocache/lib/v4/store/rediscluster"
-"github.com/eko/gocache/lib/v4/store/go_cache"
-"github.com/redis/go-redis/v9"
-"github.com/patrickmn/go-cache"
-"time"
+    "github.com/diemus/go-cacheable"
+    "github.com/eko/gocache/lib/v4/store"
+    "github.com/eko/gocache/lib/v4/store/rediscluster"
+    "github.com/eko/gocache/lib/v4/store/go_cache"
+    "github.com/redis/go-redis/v9"
+    "github.com/patrickmn/go-cache"
+    "time"
 )
 
 var RemoteCacheManager *cacheable.CacheManager
 var LocalCacheManager *cacheable.CacheManager
 
 func InitCacheManager() {
-// Initialize Redis client
-redisClient := redis.NewClusterClient(&redis.ClusterOptions{
-Addrs: []string{":6379"},
-})
-redisStore := rediscluster.NewRedisCluster(redisClient)
+    // Initialize Redis client
+    redisClient := redis.NewClusterClient(&redis.ClusterOptions{
+        Addrs: []string{":6379"},
+    })
+    redisStore := rediscluster.NewRedisCluster(redisClient)
 
-// Initialize local cache
-goCacheClient := cache.New(5*time.Minute, 10*time.Minute)
-goCacheStore := go_cache.NewGoCache(goCacheClient)
+    // Initialize local cache
+    goCacheClient := cache.New(5*time.Minute, 10*time.Minute)
+    goCacheStore := go_cache.NewGoCache(goCacheClient)
 
-// Create cache managers
-RemoteCacheManager = cacheable.NewCacheManager(redisStore)
-LocalCacheManager = cacheable.NewCacheManager(goCacheStore)
+    // Create cache managers
+    RemoteCacheManager = cacheable.NewCacheManager(redisStore)
+    LocalCacheManager = cacheable.NewCacheManager(goCacheStore)
 
-// Set global configurations (optional)
-cacheable.SetDefaultKeyPrefix("myapp")
-cacheable.SetDefaultExpiration(5 * time.Minute)
+    // Set global configurations (optional)
+    cacheable.SetDefaultKeyPrefix("myapp")
+    cacheable.SetDefaultExpiration(5 * time.Minute)
 }
 ```
 
@@ -77,37 +77,37 @@ Use the `Get` function to wrap a function and add caching capability:
 Before modification:
 ```go
 func GetUser(ctx context.Context, id int) (User, error) {
-return fetchUserFromDatabase(id)
+    return fetchUserFromDatabase(id)
 }
 ```
 
 After modification, due to the use of generics, the return value is consistent with the original function:
 ```go
 func GetUser(ctx context.Context, id int) (User, error) {
-user, err, _ := cacheable.Get(ctx, RemoteCacheManager, "users", fmt.Sprintf("%d", id), func() (User, error) {
-// This is the function to get user information when cache miss
-return fetchUserFromDatabase(id)
-})
-return user, err
+    user, err, _ := cacheable.Get(ctx, RemoteCacheManager, "users", fmt.Sprintf("%d", id), func() (User, error) {
+        // This is the function to get user information when cache miss
+        return fetchUserFromDatabase(id)
+    })
+    return user, err
 }
 ```
 
 Without modifying the original function, cache only when calling, suitable for situations where sometimes caching is needed and sometimes direct database query is needed:
 ```go
 user, err, cached := cacheable.Get(ctx, RemoteCacheManager, "users", fmt.Sprintf("%d", id), func() (User, error) {
-// This is the function to get user information when cache miss
-return GetUser(id)
+    // This is the function to get user information when cache miss
+    return GetUser(id)
 })
 ```
 
 The Get function can flexibly specify whether to use remote cache or local cache:
 ```go
 func GetUser(ctx context.Context, id int) (User, error) {
-user, err, _ := cacheable.Get(ctx, LocalCacheManager, "users", fmt.Sprintf("%d", id), func() (User, error) {
-// This is the function to get user information when cache miss
-return fetchUserFromDatabase(id)
-})
-return user, err
+    user, err, _ := cacheable.Get(ctx, LocalCacheManager, "users", fmt.Sprintf("%d", id), func() (User, error) {
+        // This is the function to get user information when cache miss
+        return fetchUserFromDatabase(id)
+    })
+    return user, err
 }
 ```
 
@@ -117,17 +117,17 @@ go-cacheable provides multiple options to customize caching behavior:
 
 ```go
 user, err, _ := cacheable.Get(ctx, RemoteCacheManager, "users", fmt.Sprintf("%d", id), fetchUserFromDatabase,
-cacheable.WithExpiration(10 * time.Minute),
-cacheable.WithTags("user", fmt.Sprintf("teamId:%d", user.TeamId)),
-cacheable.WithDynamicTags(func() []string {
-// This function is only called when setting the cache
-teamIDs, _ := getTeamIDsForUser("user1")
-tags := make([]string, len(teamIDs))
-for i, id := range teamIDs {
-tags[i] = fmt.Sprintf("teamId:%d", id)
-}
-return tags
-}),
+    cacheable.WithExpiration(10 * time.Minute),
+    cacheable.WithTags("user", fmt.Sprintf("teamId:%d", user.TeamId)),
+    cacheable.WithDynamicTags(func() []string {
+        // This function is only called when setting the cache
+        teamIDs, _ := getTeamIDsForUser("user1")
+        tags := make([]string, len(teamIDs))
+        for i, id := range teamIDs {
+            tags[i] = fmt.Sprintf("teamId:%d", id)
+        }
+        return tags
+    }),
 )
 ```
 
@@ -138,7 +138,7 @@ Tags are used to define metadata for caches, facilitating batch deletion. For ex
 ```go
 // Add tag when setting cache
 value, err, _ := cacheable.Get(ctx, cacheManager, "users", username, getUserData,
-cacheable.WithTags(fmt.Sprintf("teamId:%d", userTeamID)),
+    cacheable.WithTags(fmt.Sprintf("teamId:%d", userTeamID)),
 )
 
 // Delete related caches when team changes
@@ -151,15 +151,15 @@ The purpose of dynamic tags is to handle scenarios where computing the tag might
 
 ```go
 value, err, cached := cacheable.Get(ctx, cacheManager, "users", "user1", getUserData,
-cacheable.WithDynamicTags(func() []string {
-// This function is only called when setting the cache
-teamIDs, _ := getTeamIDsForUser("user1")
-tags := make([]string, len(teamIDs))
-for i, id := range teamIDs {
-tags[i] = fmt.Sprintf("teamId:%d", id)
-}
-return tags
-}),
+    cacheable.WithDynamicTags(func() []string {
+        // This function is only called when setting the cache
+        teamIDs, _ := getTeamIDsForUser("user1")
+        tags := make([]string, len(teamIDs))
+        for i, id := range teamIDs {
+            tags[i] = fmt.Sprintf("teamId:%d", id)
+        }
+        return tags
+    }),
 )
 ```
 
@@ -176,7 +176,6 @@ Delete cache based on tags, for example, clear all team member caches when a tea
 ```go
 err := cacheable.DeleteByTags(ctx, RemoteCacheManager, []string{"teamId:123"})
 ```
-
 ### Multiple Cache Backends
 
 go-cacheable is built on top of [github.com/eko/gocache](https://github.com/eko/gocache) and supports multiple cache backends:
