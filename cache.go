@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"github.com/eko/gocache/lib/v4/cache"
 	"github.com/eko/gocache/lib/v4/store"
 	"golang.org/x/sync/singleflight"
 	"time"
@@ -16,14 +15,13 @@ var defaultMetricsPrefix = "cacheable"
 
 type CacheManager struct {
 	sg    singleflight.Group
-	cache *cache.Cache[[]byte]
+	cache store.StoreInterface
 }
 
 func NewCacheManager(store store.StoreInterface) *CacheManager {
-	mgr := cache.New[[]byte](store)
 	return &CacheManager{
 		sg:    singleflight.Group{},
-		cache: mgr,
+		cache: store,
 	}
 }
 
@@ -38,7 +36,15 @@ func (i *CacheManager) Get(ctx context.Context, namespace string, key string, fn
 	} else if err == nil {
 		//缓存存在，直接返回
 		CacheHitTotal.WithLabelValues(namespace).Inc()
-		return data, nil, true
+		//这里有个bug，redis取出的是string, go-cache取出的是[]byte，需要做类型转换
+		switch data.(type) {
+		case []byte:
+			return data.([]byte), nil, true
+		case string:
+			return []byte(data.(string)), nil, true
+		default:
+			return nil, errors.New("unsupported data type"), false
+		}
 	}
 
 	//缓存不存在，调用fn获取数据，使用single flight防止缓存击穿
@@ -76,12 +82,12 @@ func (i *CacheManager) Get(ctx context.Context, namespace string, key string, fn
 		return nil, err, false
 	}
 
-	return data, fnErr, false
+	return data.([]byte), fnErr, false
 }
 
 func (i *CacheManager) Delete(ctx context.Context, namespace string, key string) error {
 	// 拼接namespace和key作为缓存的key
-	key = namespace + ":" + key
+	key = defaultKeyPrefix + ":" + namespace + ":" + key
 	return i.cache.Delete(ctx, key)
 }
 
