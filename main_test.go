@@ -9,6 +9,7 @@ import (
 )
 
 var MockCacheManager *CacheManager
+var namespace = "test"
 
 func TestMain(m *testing.M) {
 

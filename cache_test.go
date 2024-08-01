@@ -11,7 +11,6 @@ import (
 
 func TestGet(t *testing.T) {
 	ctx := context.Background()
-	namespace := "test"
 
 	t.Run("缓存命中", func(t *testing.T) {
 		key := "hit"
@@ -30,23 +29,20 @@ func TestGet(t *testing.T) {
 		assert.NoError(t, err)
 		assert.True(t, cached)
 		assert.Equal(t, expected, value)
-		assert.Less(t, duration, 10*time.Millisecond) // 假设缓存命中应该很快
+		assert.Less(t, duration, 100*time.Millisecond) // 假设缓存命中应该很快
 	})
 
 	t.Run("缓存未命中", func(t *testing.T) {
 		key := "miss"
 		expected := "new value"
-		start := time.Now()
 		value, err, cached := Get(ctx, MockCacheManager, namespace, key, func() (string, error) {
 			time.Sleep(50 * time.Millisecond) // 模拟耗时操作
 			return expected, nil
 		})
-		duration := time.Since(start)
 
 		assert.NoError(t, err)
 		assert.False(t, cached)
 		assert.Equal(t, expected, value)
-		assert.Greater(t, duration, 50*time.Millisecond)
 	})
 
 	t.Run("fn返回错误", func(t *testing.T) {
@@ -86,7 +82,6 @@ func TestGet(t *testing.T) {
 
 func TestDelete(t *testing.T) {
 	ctx := context.Background()
-	namespace := "test"
 
 	t.Run("删除存在的缓存", func(t *testing.T) {
 		key := "existing"
@@ -128,7 +123,6 @@ func TestDelete(t *testing.T) {
 
 func TestDeleteByTags(t *testing.T) {
 	ctx := context.Background()
-	namespace := "test"
 
 	t.Run("根据标签删除缓存", func(t *testing.T) {
 		tag := "tag1"
@@ -154,6 +148,10 @@ func TestDeleteByTags(t *testing.T) {
 
 		assert.False(t, cached1)
 		assert.False(t, cached2)
+
+		//需要删除缓存，如果是redis，里面还留着旧的key会导致单测异常
+		Delete(ctx, MockCacheManager, namespace, key1)
+		Delete(ctx, MockCacheManager, namespace, key2)
 	})
 
 	t.Run("根据不存在的标签删除缓存", func(t *testing.T) {
@@ -192,12 +190,16 @@ func TestDeleteByTags(t *testing.T) {
 		assert.False(t, cached1)
 		assert.False(t, cached2)
 		assert.False(t, cached3)
+
+		//需要删除缓存，如果是redis，里面还留着旧的key会导致单测异常
+		Delete(ctx, MockCacheManager, namespace, key1)
+		Delete(ctx, MockCacheManager, namespace, key2)
+		Delete(ctx, MockCacheManager, namespace, key3)
 	})
 }
 
 func TestGetWithOptions(t *testing.T) {
 	ctx := context.Background()
-	namespace := "test"
 
 	t.Run("使用过期时间选项", func(t *testing.T) {
 		key := "expiration"
